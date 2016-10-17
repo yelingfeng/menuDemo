@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>menu</title>
+    <link rel="stylesheet" href="css/normalize.min.css">
+    <link rel="stylesheet" href="css/menu.css">
+    <style>
+        *{
+            margin: 0;
+            padding: 0;
+        }
+        body{
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #010205 url(images/mainBG.jpg) no-repeat ;
+            background-size: cover;
+            overflow: hidden;
+            font: 12px/18px Microsoft YaHei, HelveticaNeue, Helvetica, Arial, sans-serif;
+        }
+        ul {
+            list-style-type: none;
+        }
+        a {
+            color :#a6f1ff;
+            text-decoration:none;
+        }
+
+    </style>
+</head>
+<body>
+    <script src="js/jquery.min.js"></script>
+    <script src="js/lodash.min.js"></script>
+    <script src="js/menu.js"></script>
+    <script>
+        $(document).ready(function(){
+            $.getJSON('json/menu.json').done(function(r){
+                var menu = new NXMenu({
+                    data : r.result,
+                    clickFn:function(url){
+                        alert(url);
+                    },
+                    curMenu:{
+                        'name':'域名安全监测',
+                        'id':'20000'
+                    }
+                })
+                setTimeout(function(){
+                    menu.opend();
+                },500);
+
+            })
+        })
+    </script>
+</body>
+</html>
