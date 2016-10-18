@@ -57,6 +57,7 @@
             this.menuItem = $(".menu-item",this.menuBox);
             this.submenu = $(submenuClass);
             this.$el.appendTo("body")
+            this.initRel();
             this.create();
             this.bind();
         },
@@ -68,6 +69,45 @@
             this.iconDom.removeClass("ready");
         },
 
+
+        /**
+         * 初始化父子关系
+         */
+        initRel:function(){
+            var me = this;
+            me.listMap = {};
+            me.relMap = {};
+
+             this.config.data.forEach(function(it){
+                 me.listMap[it.id] = {
+                     name : it.name,
+                     id : it.id,
+                     href : it.url
+                 };
+                 it.sonmenu.forEach(function(sub){
+                     me.listMap[sub.id] = {
+                         name : sub.name,
+                         id : sub.id,
+                         href : sub.url
+                     };
+                     me.relMap[sub.id] = it.id ;
+
+                     sub.sonmenu.forEach(function(three){
+                         me.listMap[three.id] = {
+                             name : three.name,
+                             id : three.id,
+                             href : three.url
+                         };
+                         me.relMap[three.id] = sub.id ;
+                     })
+                 })
+
+
+            })
+
+
+
+        },
         /**
          * 映射一下数据库中已有的icon地址 转换成菜单识别的icon类型
          *
@@ -114,7 +154,7 @@
             var itemList = dataChain.map(function(it){
                 var iconkey = me.mappingDatabaseIcon(it.icon);
                 var subMenu = it.sonmenu;
-                var astr = '<a class="menu-a" href="javascript:;"><i class="bg'+iconkey+'"></i><span>'+it.name+'</span></a>';
+                var astr = '<a class="menu-a" href="javascript:;" data-ref="'+it.href+'"><i class="bg'+iconkey+'"></i><span>'+it.name+'</span></a>';
                 var $li  = $('<li class="menu-item" data-id="'+it.id+'">'+astr+'</li>');
                 // 二级菜单
                 if(subMenu.length){
@@ -133,6 +173,7 @@
             this.createFastMenu();
         },
 
+
         // 创建当前快捷菜单
         createFastMenu:function(){
 
@@ -140,7 +181,7 @@
             var id = curMenu.id;
 
             var $sub = $("<div class='fast-header'><span>"+curMenu.name+"</span></div>").append('<div class="top_fx"></div><div class="bom_fx"></div>');
-            this.fastMenuBox.append($sub)
+            this.fastMenuBox.empty().append($sub)
             if(id!=null){
                 // 得到二级数据
                 var subData =  _.chain(this.config.data).find(function(it){
@@ -154,6 +195,8 @@
 
             }
 
+            this.bindSubMenu();
+
         },
 
 
@@ -161,8 +204,8 @@
             var me = this;
             this.homeBtn.on('mouseenter',function(){
                 if(!me.menuBox.hasClass("open")){
+                    me.$el.addClass("open")
                     me.menuBox.addClass('open');
-
                     me.fastMenuBox.removeClass('open');
                 }
             })
@@ -170,31 +213,105 @@
             this.fastBtn.on('mouseenter',function(){
                 if(!me.fastMenuBox.hasClass("open")){
                     me.fastMenuBox.addClass('open');
-
                     me.menuBox.removeClass('open');
                 }
             })
-
-
 
             this.bindMenu();
             this.bindSubMenu();
             this.bindDocument();
             this.bindUrlAction();
         },
+
+
+        // 获取当前父级信息
+        getParentData:function(id){
+           return this.listMap[this.relMap[id]]
+        },
+
+        /**
+         * 获取当前节点信息
+         * @param it
+         */
+        getCurData:function(id){
+            return this.listMap[id]
+        },
+
+
+        /**
+         * 判断点击的二级或者三级菜单 是否等于当前1级快捷菜单
+         */
+        isHasCurMenu:function(id){
+            var clickPid = this.relMap[id];
+            var ppId  = this.relMap[clickPid];
+
+            if(ppId!=null && clickPid!=null){
+                return ppId == this.config.curMenu.id
+            }
+
+            if(ppId==null && clickPid !=null){
+                return clickPid == this.config.curMenu.id
+            }
+
+        },
+
         bindUrlAction:function () {
             var me  = this;
             this.menuBox.delegate("a[data-href]",'click',function(e){
-                var href = $(this).attr("data-href");
-                if(href == "null" || href == "" )return;
-                $.isFunction(me.config.clickFn) && me.config.clickFn(href);
+                var $this = $(this);
+                var id = $this.parent().attr("data-id");
+                var curObj = me.getCurData(id);
+                var curParent = me.getParentData(id);
+
+
+
+                // 判断是否 不是当前二级菜单内的菜单
+                if(!me.isHasCurMenu(id)){
+                    me.config.curMenu = {
+                        id : curParent.id,
+                        name :curParent.name
+                    }
+                    me.createFastMenu();
+                }
+
+                var result = {
+                    id : curObj.id,
+                    name : curObj.name,
+                    href : curObj.href,
+                    pId :curParent.id,
+                    pName :curParent.name,
+                }
+
+                var rootParent = me.getParentData(curParent.id);
+                if(rootParent!=null){
+                    result.rootId = rootParent.id;
+                    result.rootName = rootParent.name;
+                }
+
+                $.isFunction(me.config.clickFn) && me.config.clickFn(result);
                 e.stopPropagation()
             })
 
             this.fastMenuBox.delegate("a[data-href]",'click',function(e){
-                var href = $(this).attr("data-href");
-                if(href == "null" || href == "" )return;
-                $.isFunction(me.config.clickFn) && me.config.clickFn(href);
+                var $this = $(this);
+                var id = $this.parent().attr("data-id");
+                var curObj = me.getCurData(id);
+                var curParent = me.getParentData(id);
+                var result = {
+                    id : curObj.id,
+                    name : curObj.name,
+                    href : curObj.href,
+                    pId :curParent.id,
+                    pName :curParent.name
+                }
+
+                var rootParent = me.getParentData(curParent.id);
+                if(rootParent!=null){
+                    result.rootId = rootParent.id;
+                    result.rootName = rootParent.name;
+                }
+
+                $.isFunction(me.config.clickFn) && me.config.clickFn(result);
                 e.stopPropagation()
             })
 
@@ -203,6 +320,14 @@
 
         // 绑定一级菜单
         bindMenu:function(){
+            var me = this;
+            this.menuBox.delegate(".menu-content .menu-a",'click',function(e){
+                 var vhref = $(this).attr("data-ref");
+                if(vhref!=null && vhref !=undefined){
+                    $.isFunction(me.config.oneMenuClick) && me.config.oneMenuClick(vhref)
+                }
+            })
+
             this.menuBox.delegate(".menu-item",'mouseenter',function(e){
                 var $m2 = $(this).find(".m2");
                 if($m2.length){
@@ -221,6 +346,11 @@
             });
             this.menuBox.on("mouseleave",function(){
                 $(this).removeClass("open")
+
+                setTimeout(function(){
+                    me.$el.removeClass("open")
+                },500)
+
             })
 
             this.fastMenuBox.on("mouseleave",function(){
@@ -245,7 +375,8 @@
         // 二级菜单绑定
         bindSubMenu:function(){
             $(submenuClass).addClass(submenuClosedClass);
-            $(submenuClass).on('click', function(e){
+
+            $(submenuClass).off('click').on('click', function(e){
                 var selected = $(this);
                 if( selected.hasClass(submenuClosedClass) ) {
                     $(submenuClass).addClass(submenuClosedClass).removeClass(submenuOpenClass);
